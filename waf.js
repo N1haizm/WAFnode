@@ -5,6 +5,7 @@ const bodyParser = require('body-parser');
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const isAuth = require('./middleware/is-auth')
+const rateLimiter = require('./middleware/rate-limiter')
 
 const app = express();
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -13,27 +14,29 @@ app.use(bodyParser.json());
 const Iplist = require('./models/ip-list');
 const CheckSchema = require('./models/check');
 const Admin = require('./models/admin')
+const Blockedips = require('./models/blockedip')
 
-app.use(cors('*'));
+const corsOptions = {
+  origin: 'https://akm-hackathon.vercel.app',
+};
+
+app.use(cors(corsOptions));
 
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', 'https://akm-hackathon.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'OPTIONS, GET, POST, PUT, PATCH, DELETE');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   next();
 });
 
-const requestCount = {};
-const blockedIPs = [];
-
 // Regular expressions for detecting malicious code
 const sqlInjectionRegex = /\b(ALTER|CREATE|DELETE|DROP|EXEC(UTE){0,1}|INSERT( +INTO){0,1}|MERGE|REPLACE|SELECT|UPDATE|UNION( +ALL){0,1})\b|\b(AND|OR)\b.+\b(IS|IN|LIKE)\b|('[^']*'|[^\w\s.])/i;
-const lfiRegex = /(\.\.[\\\/]){1,}/i;
-const xssRegex = /<script\b[^>]*>|<|>|<>|script/gi;
-const commandRegex = /([|;&`<>\x00-\x1f()\[\]{}*$!#'~^"\/\\])|(\b(rm|cat|touch|wget|curl|sh|bash|python|php)\b)/;
+const lfiRegex = /(?:\.\.\/|\/\.\.)/i;
+const xssRegex = /<.*?>|<|>|<>|script/gi;
+const commandRegex = /([|;&`\x00-\x1f()\[\]{}*$!#~^"])|(\b(rm|cat|touch|wget|curl|sh|bash|python|php)\b(?!\/\.\.))/;
 
 app.get('/iplist', isAuth, async (req, res) => {
-  try {
+  try { 
     const ips = await Iplist.find();
     res.json(ips);
   } catch (error) {
@@ -42,9 +45,19 @@ app.get('/iplist', isAuth, async (req, res) => {
   }
 });
 
-app.post('/api/users', async (req, res) => {
+app.post('/api/users', rateLimiter, async (req, res) => {
   const requestData = req.body.message;
   const ip = req.body.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+  try {
+    const blockedIp = await Blockedips.findOne({ ip: ip, blockType: 'DoS' });
+    if (blockedIp) {
+      return res.status(403).json({ message: 'Access Denied', blockType: "You were trying to do Bruteforce huh!?" });
+    }
+  } catch (error) {
+    console.error('Error searching blocked IP:', error);
+    return res.status(500).json({ message: 'Internal Server Error' });
+  }
 
   let isMalicious = false;
 
@@ -81,8 +94,12 @@ app.post('/api/users', async (req, res) => {
         { upsert: true, new: true }
       );
       if (checkDocument.maliciousReqCount > 5) {
-        blockedIPs[ip] = true;
-        return res.status(403).json({ message: 'Access Denied' });
+        const blockedIp = new Blockedips({
+          ip: ip,
+          blockType: 'Malicious Requests Exceeded'
+        });
+        await blockedIp.save();
+        return res.status(403).json({ message: 'Access Denied', blockType: blockedIp.blockType });
       }
     } catch (error) {
       console.error('Error updating CheckSchema:', error);
@@ -137,6 +154,7 @@ app.post('/api/users', async (req, res) => {
       })
       .catch(err => console.log(err))
   })
+
 mongoose
   .connect('mongodb+srv://nihad:2992nihat@cluster0.s3p6bd2.mongodb.net/?retryWrites=true&w=majority', {
     useNewUrlParser: true,
