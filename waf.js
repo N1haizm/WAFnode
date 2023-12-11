@@ -32,7 +32,7 @@ app.use((req, res, next) => {
 // Regular expressions for detecting malicious code
 const sqlInjectionRegex = /\b(ALTER|CREATE|DELETE|DROP|EXEC(UTE){0,1}|INSERT( +INTO){0,1}|MERGE|REPLACE|SELECT|UPDATE|UNION( +ALL){0,1})\b|\b(AND|OR)\b.+\b(IS|IN|LIKE)\b|('[^']*'|[^\w\s.])/i;
 const lfiRegex = /(?:\.\.\/|\/\.\.)/i;
-const xssRegex = /<.*?>|<|>|<>|script/gi;
+const xssRegex = /<.*?>|<|>|<>/gi;
 const commandRegex = /([|;&`\x00-\x1f()\[\]{}*$!#~^"])|(\b(rm|cat|touch|wget|curl|sh|bash|python|php)\b(?!\/\.\.))/;
 
 app.get('/iplist', isAuth, async (req, res) => {
@@ -50,7 +50,7 @@ app.post('/api/users', rateLimiter, async (req, res) => {
   const ip = req.body.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
   try {
-    const blockedIp = await Blockedips.findOne({ ip: ip, blockType: 'DoS' });
+    const blockedIp = await Blockedips.findOne({ ip: ip, blockType: 'Bruteforce' });
     if (blockedIp) {
       return res.status(403).json({ message: 'Access Denied', blockType: "You were trying to do Bruteforce huh!?" });
     }
@@ -123,8 +123,14 @@ app.post('/api/users', rateLimiter, async (req, res) => {
   }
 });
 
+app.get('/blockedips', (req, res, next) => {
+  Blockedips.find().then(datas => {
+    res.status(200).json({data: datas})
+  })
+})
 
-  app.post('/api/login', (req, res, next) => {
+
+app.post('/api/login', (req, res, next) => {
     const email = req.body.email
     const password = req.body.password
     let loadedAdmin;
@@ -151,9 +157,9 @@ app.post('/api/users', rateLimiter, async (req, res) => {
             userId: loadedAdmin._id.toString()
           }, 'somesupersecretsecret', { expiresIn: '1h' })
         res.status(200).json({token: token, userId: loadedAdmin._id.toString()})
-      })
-      .catch(err => console.log(err))
-  })
+    })
+    .catch(err => console.log(err))
+})
 
 mongoose
   .connect('mongodb+srv://nihad:2992nihat@cluster0.s3p6bd2.mongodb.net/?retryWrites=true&w=majority', {

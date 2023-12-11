@@ -9,7 +9,7 @@ const limiter = rateLimit({
     try {
       const blockedIp = new Blockedips({
         ip: ip,
-        blockType: 'DoS',
+        blockType: 'Bruteforce',
       });
       await blockedIp.save();
     } catch (error) {
