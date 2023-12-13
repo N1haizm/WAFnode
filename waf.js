@@ -45,7 +45,7 @@ app.get('/iplist', isAuth, async (req, res) => {
   }
 });
 
-app.post('/api/users', async (req, res) => {
+app.post('/api/users', rateLimiter, async (req, res) => {
   const requestData = req.body.message;
   const ip = req.body.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
@@ -86,25 +86,25 @@ app.post('/api/users', async (req, res) => {
   }
 
   let checkDocument;
-  // if (isMalicious) {
-  //   try {
-  //     checkDocument = await CheckSchema.findOneAndUpdate(
-  //       { ip: ip },
-  //       { $inc: { maliciousReqCount: 1 } },
-  //       { upsert: true, new: true }
-  //     );
-  //     if (checkDocument.maliciousReqCount > 5) {
-  //       const blockedIp = new Blockedips({
-  //         ip: ip,
-  //         blockType: 'Malicious Requests Exceeded'
-  //       });
-  //       await blockedIp.save();
-  //       return res.status(403).json({ message: 'Access Denied', blockType: blockedIp.blockType });
-  //     }
-  //   } catch (error) {
-  //     console.error('Error updating CheckSchema:', error);
-  //   }
-  // }
+  if (isMalicious) {
+    try {
+      checkDocument = await CheckSchema.findOneAndUpdate(
+        { ip: ip },
+        { $inc: { maliciousReqCount: 1 } },
+        { upsert: true, new: true }
+      );
+      if (checkDocument.maliciousReqCount > 5) {
+        const blockedIp = new Blockedips({
+          ip: ip,
+          blockType: 'Malicious Requests Exceeded'
+        });
+        await blockedIp.save();
+        return res.status(403).json({ message: 'Access Denied', blockType: blockedIp.blockType });
+      }
+    } catch (error) {
+      console.error('Error updating CheckSchema:', error);
+    }
+  }
   
   const IpList = new Iplist({
     ip: ip,
