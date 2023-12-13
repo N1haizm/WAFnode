@@ -45,7 +45,7 @@ app.get('/iplist', isAuth, async (req, res) => {
   }
 });
 
-app.post('/api/users', rateLimiter, async (req, res) => {
+app.post('/api/users', async (req, res) => {
   const requestData = req.body.message;
   const ip = req.body.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
