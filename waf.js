@@ -85,7 +85,7 @@ app.post('/api/users', async (req, res) => {
     req.body.payloadType = 'Command Injection'
   }
 
-  // let checkDocument;
+  let checkDocument;
   // if (isMalicious) {
   //   try {
   //     checkDocument = await CheckSchema.findOneAndUpdate(
