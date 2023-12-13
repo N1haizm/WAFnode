@@ -85,26 +85,26 @@ app.post('/api/users', async (req, res) => {
     req.body.payloadType = 'Command Injection'
   }
 
-  let checkDocument;
-  if (isMalicious) {
-    try {
-      checkDocument = await CheckSchema.findOneAndUpdate(
-        { ip: ip },
-        { $inc: { maliciousReqCount: 1 } },
-        { upsert: true, new: true }
-      );
-      if (checkDocument.maliciousReqCount > 5) {
-        const blockedIp = new Blockedips({
-          ip: ip,
-          blockType: 'Malicious Requests Exceeded'
-        });
-        await blockedIp.save();
-        return res.status(403).json({ message: 'Access Denied', blockType: blockedIp.blockType });
-      }
-    } catch (error) {
-      console.error('Error updating CheckSchema:', error);
-    }
-  }
+  // let checkDocument;
+  // if (isMalicious) {
+  //   try {
+  //     checkDocument = await CheckSchema.findOneAndUpdate(
+  //       { ip: ip },
+  //       { $inc: { maliciousReqCount: 1 } },
+  //       { upsert: true, new: true }
+  //     );
+  //     if (checkDocument.maliciousReqCount > 5) {
+  //       const blockedIp = new Blockedips({
+  //         ip: ip,
+  //         blockType: 'Malicious Requests Exceeded'
+  //       });
+  //       await blockedIp.save();
+  //       return res.status(403).json({ message: 'Access Denied', blockType: blockedIp.blockType });
+  //     }
+  //   } catch (error) {
+  //     console.error('Error updating CheckSchema:', error);
+  //   }
+  // }
   
   const IpList = new Iplist({
     ip: ip,
