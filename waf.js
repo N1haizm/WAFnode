@@ -22,6 +22,8 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
+app.set('trust proxy', true);
+
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', 'https://akm-hackathon.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'OPTIONS, GET, POST, PUT, PATCH, DELETE');
@@ -47,7 +49,7 @@ app.get('/iplist', isAuth, async (req, res) => {
 
 app.post('/api/users', rateLimiter, async (req, res) => {
   const requestData = req.body.message;
-  const ip = req.body.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
   try {
     const blockedIp = await Blockedips.findOne({ ip: ip, blockType: 'Bruteforce' });
